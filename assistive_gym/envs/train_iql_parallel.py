@@ -83,10 +83,6 @@ def get_train_plot_image(rewards, imsize, ep_info, info):
     ax_total = fig.add_subplot(1, 1, 1) # plot total reward
 
     ax_total.plot(range(len(ep_info)), rewards, label='total_reward', color='C0')
-    # ax_total.plot(range(len(ep_info)), [inf['angle_deviation_penalty'] for inf in ep_info], label='angle deviation penalty', color='C1')
-    # ax_total.plot(range(len(ep_info)), [inf['pitch_rotation'] for inf in ep_info], label='pitch_rotation', color='C1')
-    # ax_total.plot(range(len(ep_info)), [inf['yaw_rotation'] for inf in ep_info], label='yaw_rotation', color='C2')
-    # ax_total.plot(range(len(ep_info)), [inf['translation_mag'] * 5e3 for inf in ep_info], label='translation_mag', color='C3')
 
     ax_total.legend()
 

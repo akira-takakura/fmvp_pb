@@ -18,8 +18,3 @@ class DressingSawyerHumanEnv(DressingEnv, MultiAgentEnv):
     def __init__(self, **kwargs):
         super(DressingSawyerHumanEnv, self).__init__(robot=Sawyer(robot_arm), human=Human(human_controllable_joint_indices, controllable=True), **kwargs)
 register_env('assistive_gym:DressingSawyerHuman-v1', lambda config: DressingSawyerHumanEnv())
-
-# class DressingSawyerHumanEnvData(DressingEnvData, MultiAgentEnv):
-#     def __init__(self, **kwargs):
-#         super(DressingSawyerHumanEnvData, self).__init__(robot=Sawyer(robot_arm), human=Human(human_controllable_joint_indices, controllable=True), **kwargs)
-# register_env('assistive_gym:DressingSawyerHumanEnvDataCollection', lambda config: DressingSawyerHumanEnvData())

@@ -10,24 +10,24 @@ import time
 import datetime
 import dateutil.tz
 from tqdm import tqdm
-import cv2
 import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
 import torch
+
 import wandb
 from chester.run_exp import run_experiment_lite, VariantGenerator
+from collections import deque
+
 
 from torch_geometric.data import Batch
-from reward_model import RewardModel3, RewardModelVLM
 from chester import logger
 import utils
 from default_config import DEFAULT_CONFIG
 from logger import Logger
-from pc_replay_buffer import PointCloudReplayBuffer
 from iql_pointcloud import IQLAgent
-from visualization import save_numpy_as_gif
 from dressing_envs import DressingSawyerHumanEnv
+# from train_force_dynamics_model import make_agent as make_agent_force
 
 import multiprocessing as mp
 from multiprocessing import Pool
@@ -43,13 +43,15 @@ class ParallelEvaluator:
         self.num_workers = num_workers
         self.pool = Pool(processes=num_workers)
 
-    def evaluate_agents(self, agents, args):
+    def evaluate_agents(self, agent, step, elbow_rand, shoulder_rand, pairs, args):
         task_args = [
-            (agent, gif_dir, step, args)
-            for agent, gif_dir, step in agents
+            (agent, step, elbow_rand, shoulder_rand, garment_id, motion_id, pose_id, args)
+            for garment_id, motion_id, pose_id in pairs
         ]
 
-        self.pool.map(evaluate, task_args)
+        ret = self.pool.map(evaluate, task_args)
+        return np.mean(ret)
+
 
     def close(self):
         """
@@ -117,36 +119,6 @@ def vv_to_args(vv):
 def run_task(vv, log_dir=None, exp_name=None):
     # if resume from directory
     # log_dir = "/home/sreyas/Desktop/Projects/softagent_rpad/data/reward_collection/"
-    if vv.variants()[-1]['resume_from_ckpt']:
-        if vv.variants()[-1]['policy'] == 1:
-            if vv.variants()[-1]['r1_w'] == 0.7:
-                log_dir = vv.variants()[-1]['resume_from_exp_path_p1_7030']
-
-            elif vv.variants()[-1]['r1_w'] == 0.5:
-                log_dir = vv.variants()[-1]['resume_from_exp_path_p1_5050']
-
-            elif vv.variants()[-1]['r1_w'] == 1.0:
-                 log_dir = vv.variants()[-1]['resume_from_exp_path_p1_100']
-
-        elif vv.variants()[-1]['policy'] == 2:
-            if vv.variants()[-1]['r1_w'] == 0.7:
-                log_dir = vv.variants()[-1]['resume_from_exp_path_p2_7030']
-
-            elif vv.variants()[-1]['r1_w'] == 0.5:
-                log_dir = vv.variants()[-1]['resume_from_exp_path_p2_5050']
-
-            elif vv.variants()[-1]['r1_w'] == 1.0:
-                log_dir = vv.variants()[-1]['resume_from_exp_path_p2_100']
-
-        elif vv.variants()[-1]['policy'] == 0:
-            if vv.variants()[-1]['r1_w'] == 0.7:
-                log_dir = vv.variants()[-1]['resume_from_exp_path_p0_7030']
-
-            elif vv.variants()[-1]['r1_w'] == 0.5:
-                log_dir = vv.variants()[-1]['resume_from_exp_path_p0_5050']
-
-            elif vv.variants()[-1]['r1_w'] == 1.0:
-                log_dir = vv.variants()[-1]['resume_from_exp_path_p0_100']
 
     if log_dir or logger.get_dir() is None:
         logger.configure(dir=log_dir, exp_name=exp_name, format_strs=['csv'])
@@ -193,215 +165,104 @@ def check_rb_min_size(replay_buffers, rb_limit):
 
 # run evaluation of a policy
 def evaluate(arg):
-    agent, dir, step, args = arg
-    L = Logger(dir, use_tb=args.save_tb, chester_logger=logger)
+    agent, step, elbow_rand, shoulder_rand, garment_id, motion_id, pose_id, args = arg
+    # if step == 0:
+    #     reconstruct = True
+    # else:
+    #     reconstruct = False
 
-    wandb.init()
+    # if step <= 1:
+    #     use_force = True
+    # else:
+    #     use_force = False
 
-    def run_eval_loop(sample_stochastically=True):
-        start_time = time.time()
-        prefix = '_'
-        all_traj_returns_garments_poses = defaultdict(lambda: defaultdict(list))
-        # {region_num_0: {garment0: [pose0, pose1, ...], garment1: [...], ....., garment4: [...]}, ...., region_num_27: ...}
-        all_upperarm_ratio_garments_poses = defaultdict(lambda: defaultdict(list))
+    if step == 2:
+        args.use_force = True
+    else:
+        args.use_force = False
 
-        # breakpoint()
+    def run_eval_loop():
+        # env = DressingSawyerHumanEnv(policy=args.policy, horizon=args.horizon, camera_pos=args.camera_pos, occlusion=args.occlusion, rand=args.rand, render=args.render, gif_path=args.gif_path)
+        env = DressingSawyerHumanEnv(gender=args.gender, body_size=args.body_size, policy=int(step), horizon=args.horizon, camera_pos=args.camera_pos, occlusion=args.occlusion, render=args.render, gif_path=args.gif_path, one_hot=args.one_hot, reconstruct=args.reconstruct, use_force=args.use_force, adv=args.adv, mass=args.mass, friction=args.friction, repulsion=args.repulsion, elbow_rand=elbow_rand, shoulder_rand=shoulder_rand)
 
-        cnt = 0
-        garment_ids = [1, 2]
+        obs, force_vector = env.reset(garment_id=garment_id, motion_id=motion_id, pose_id=pose_id, step_idx = step)
+        done = False
+        episode_reward = 0
+        ep_info = []
+        rewards = []
+        traj_dataset = []
 
-        # motion_ids = [0]
-        motion_ids = [0, 2, 4, 5, 6, 7]
+        if step == 0 or step == 1:
+            force_history = deque([], maxlen=5)
+            for i in range(5):
+                force_history.append(0)
+            force_history.append(force_vector.sum())
         
-        for garment_id in garment_ids:
+        t = 0
+        while not done:
+            print('------Iteration', env.iteration)
 
-            for motion_id in motion_ids:
-                env = DressingSawyerHumanEnv(policy=args.policy, horizon=args.horizon, camera_pos=args.camera_pos, rand=args.rand, render=args.render, gif_path=args.gif_path)
+            with utils.eval_mode(agent):
+                if step == 0 or step == 1:
+                    if env.on_forearm or env.on_upperarm:
+                        action, progression_direction, predicted_force = agent.plan_action_constrain_force(obs, force_vector, np.array(force_history))
+                    else:
+                        action = agent.sample_action(obs, force_vector)
+                else:
+                        action = agent.select_action(obs, force_vector)
+            step_action = action.reshape(-1, 6)[-1].flatten()
+            # step_action[3] = 0
 
-                obs = env.reset(garment_id=garment_id, motion_id=motion_id, step_idx = step)
-                done = False
-                episode_reward = 0
-                ep_info = []
-                rewards = []
+            # step_action[:3] *= 0.01
+            x, y, z = step_action[:3].copy() * args.action_scale
+            x_r, y_r, z_r = step_action[3:].copy()
 
-                # if step >= args.saving_gif_start and (step // args.eval_freq) % factor == 0 and not gif_saved:
-                #     initial_images = env.get_image(imsize, imsize, both_camera_angle=True)
-                #     frames, frames_2 = [initial_images[0]], [initial_images[1]]
-                #     pc_images, reward_images = [], []
-                #     all_images = []
+            step_action[0] = z 
+            step_action[1] = x
+            step_action[2] = y
+
+            # step_action[3] = z_r
+            step_action[3] = 0
+            step_action[4] = 0
+            step_action[5] = y_r
+
+            dtheta = np.linalg.norm(step_action[3:])
+            max_rot_axis_ang = (5. * np.pi / 180.)
+
+            if dtheta > 0:
+                step_action[3:] = step_action[3:]/dtheta
                 
-                t = 0
-                while not done:
-                    print('------Iteration', t)
+                if dtheta > max_rot_axis_ang:
+                    dtheta *= max_rot_axis_ang / np.sqrt(3)
+                step_action[3:] *= dtheta
 
-                    with utils.eval_mode(agent):
-                        action = agent.select_action(obs)
-                    step_action = action.reshape(-1, 6)[-1].flatten()
-                    # step_action[3] = 0
+            obs, reward, done, info, force_vector = env.step(step_action)
+            if step == 0 or step == 1:
+                force_history.append(force_vector.sum())
 
-                    # step_action[:3] *= 0.01
-                    print('action: ', step_action)
-                    x, y, z = step_action[:3].copy() * args.action_scale
-                    x_r, y_r, z_r = step_action[3:].copy()
+            step_data = {
+                'step_action': step_action,
+                "gripper_pos": env.ee_pose,
+                'force_vector': force_vector,
 
-                    step_action[0] = z 
-                    step_action[1] = x
-                    step_action[2] = y
+            }
+            traj_dataset.append(step_data)
 
-                    # step_action[3] = z_r
-                    step_action[3] = 0
-                    step_action[4] = 0
-                    step_action[5] = y_r
+            episode_reward += reward
+            ep_info.append(info)
+            rewards.append(reward)
+            t += 1
 
-                    dtheta = np.linalg.norm(step_action[3:])
-                    max_rot_axis_ang = (5. * np.pi / 180.)
+        with open(os.path.join(args.traj_dir, 'p{}_motion{}_{}_{}_{}_{}_{}_{}.pkl'.format(int(step), env.motion_id, env.camera_pos, env.garment, int(env.shoulder_rand), int(env.elbow_rand), info['whole_arm_ratio'], info['upperarm_ratio'])), 'wb') as f:
+            pickle.dump(traj_dataset, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-                    if dtheta > 0:
-                        step_action[3:] = step_action[3:]/dtheta
-                        
-                        if dtheta > max_rot_axis_ang:
-                            dtheta *= max_rot_axis_ang / np.sqrt(3)
-                        step_action[3:] *= dtheta
-
-                    obs, reward, done, info = env.step(step_action)
-                    print('step action:', step_action)
-                    episode_reward += reward
-                    ep_info.append(info)
-                    rewards.append(reward)
-
-                    # if step >= args.saving_gif_start and (step // args.eval_freq) % factor == 0 and not gif_saved:
-                    #     image = env.get_image(imsize, imsize, both_camera_angle=False)
-                    #     frames.append(image)
-                    #     pc_images.append(cv2.resize(env.reward_image, (imsize, imsize)))
-
-                    #     image_from_plot = get_train_plot_image(rewards, imsize, ep_info, info)
-                    #     reward_images.append(image_from_plot)
-                    #     all_image = np.concatenate([frames[-1], pc_images[-1]], axis=1)
-                    #     all_image = np.concatenate([all_image, reward_images[-1]], axis=1)
-                    #     all_images.append(all_image)
-                    t += 1
-
-
-                # if step >= args.saving_gif_start and (step // args.eval_freq) % factor == 0 and not gif_saved and len(all_images) > 0:
-                #     save_numpy_as_gif(np.array(all_images), os.path.join(video_dir, '{}-{}-{}-{}.gif'.format(step, garments[garment_id], region_id, pose_id)))
-
-                all_traj_returns_garments_poses[garment_id][motion_id].append(episode_reward)
-                all_upperarm_ratio_garments_poses[garment_id][motion_id].append(info['upperarm_ratio'])
-                L.log('eval/garmemt{}_motion{}_episode_reward'.format(garment_id, motion_id), episode_reward, step)
-                if args.use_wandb: 
-                    wandb.log({'garmemt{}_motion{}_episode_reward'.format(garment_id, motion_id): episode_reward, 'step': step})
-                    wandb.log({'garmemt{}_motion{}_episode_dressed_ratio'.format(garment_id, motion_id): info['upperarm_ratio'], 'step': step})
-
-                # L.log('eval/garmemt{}_motion{}_info_'.format(garment_id, motion_id) + key, val, step)
-
-
-                # for key, val in get_info_stats([ep_info]).items():
-                #     L.log('eval/garmemt{}_motion{}_info_'.format(garment_id, motion_id) + key, val, step)
-
-                cnt += 1
-
-        gif_saved = False
-                    
-        # if step >= args.saving_gif_start and (step // args.eval_freq) % factor == 0:
-        #     plt.close("all")
-
-        eval_time = time.time() - start_time
-        L.log('eval/' + prefix + 'wallclock_time', np.mean(eval_time), step)
-
-        garment_reward_means = []
-        garment_upperarm_ratio_means = []
-        # log reward for every motion, averaged across garment
-        for motion_id in motion_ids:
-            prefix = str(motion_id) + '_'
-            all_traj_returns_all_poses = np.array([
-                all_traj_returns_garments_poses[garment_id][motion_id] 
-                for garment_id in garment_ids 
-                if not (
-                    isinstance(all_traj_returns_garments_poses[garment_id][motion_id], list) and
-                    len(all_traj_returns_garments_poses[garment_id][motion_id]) == 0
-                )
-            ])
-            all_upperarm_ratio_all_poses = np.array([
-                all_upperarm_ratio_garments_poses[garment_id][motion_id] 
-                for garment_id in garment_ids 
-                if not (
-                    isinstance(all_traj_returns_garments_poses[garment_id][motion_id], list) and
-                    len(all_traj_returns_garments_poses[garment_id][motion_id]) == 0
-                )
-            ])
-
-            if (len(all_traj_returns_all_poses) == 0): continue
-
-            mean_ep_reward, best_ep_reward = np.mean(all_traj_returns_all_poses), np.max(all_traj_returns_all_poses)
-            mean_upperarm_ratio, best_upperarm_ratio = np.mean(all_upperarm_ratio_all_poses), np.max(all_upperarm_ratio_all_poses)
-            L.log('eval/' + prefix + 'mean_episode_reward', mean_ep_reward, step)
-            L.log('eval/' + prefix + 'best_episode_reward', best_ep_reward, step)
-            L.log('eval/' + prefix + 'mean_upperarm_ratio', mean_upperarm_ratio, step)
-            L.log('eval/' + prefix + 'best_upperarm_ratio', best_upperarm_ratio, step)
-
-            if args.use_wandb: 
-                wandb.log({'motion{}_mean_ep_reward'.format(motion_id): mean_ep_reward, 'step': step})
-                wandb.log({'motion{}_best_ep_reward'.format(motion_id): best_ep_reward, 'step': step})
-                wandb.log({'motion{}_mean_upper_ratio'.format(motion_id): mean_upperarm_ratio, 'step': step})
-                wandb.log({'motion{}_best_upper_ratio'.format(motion_id): best_upperarm_ratio, 'step': step})
-
-
-            garment_reward_means.append(mean_ep_reward)
-            garment_upperarm_ratio_means.append(mean_upperarm_ratio)
-
-         # log reward for every garment, averaged across motion
-        for garment_id in garment_ids:
-            prefix = str(garment_id) + '_'
-            all_traj_returns_all_poses = np.array([
-                all_traj_returns_garments_poses[garment_id][motion_id] 
-                for motion_id in motion_ids 
-                if not (
-                    isinstance(all_traj_returns_garments_poses[garment_id][motion_id], list) and
-                    len(all_traj_returns_garments_poses[garment_id][motion_id]) == 0
-                )
-            ])
-            all_upperarm_ratio_all_poses = np.array([
-                all_upperarm_ratio_garments_poses[garment_id][motion_id] 
-                for motion_id in motion_ids 
-                if not (
-                    isinstance(all_traj_returns_garments_poses[garment_id][motion_id], list) and
-                    len(all_traj_returns_garments_poses[garment_id][motion_id]) == 0
-                )
-            ])
-
-            if (len(all_traj_returns_all_poses) == 0): continue
-
-            mean_ep_reward, best_ep_reward = np.mean(all_traj_returns_all_poses), np.max(all_traj_returns_all_poses)
-            mean_upperarm_ratio, best_upperarm_ratio = np.mean(all_upperarm_ratio_all_poses), np.max(all_upperarm_ratio_all_poses)
-            L.log('eval/' + prefix + 'mean_episode_reward', mean_ep_reward, step)
-            L.log('eval/' + prefix + 'best_episode_reward', best_ep_reward, step)
-            L.log('eval/' + prefix + 'mean_upperarm_ratio', mean_upperarm_ratio, step)
-            L.log('eval/' + prefix + 'best_upperarm_ratio', best_upperarm_ratio, step)
-
-            if args.use_wandb: 
-                wandb.log({'motion{}_mean_ep_reward'.format(garment_id): mean_ep_reward, 'step': step})
-                wandb.log({'motion{}_best_ep_reward'.format(garment_id): best_ep_reward, 'step': step})
-                wandb.log({'motion{}_mean_upper_ratio'.format(garment_id): mean_upperarm_ratio, 'step': step})
-                wandb.log({'motion{}_best_upper_ratio'.format(garment_id): best_upperarm_ratio, 'step': step})
-
-
-            
-        mean_ep_reward = np.mean(garment_reward_means)
-        mean_upperarm_ratio = np.mean(garment_upperarm_ratio_means)
-        L.log('eval/mean_episode_reward', mean_ep_reward, step)
-        L.log('eval/mean_upperarm_ratio', mean_upperarm_ratio, step)
-
-        if args.use_wandb: 
-            wandb.log({'mean_episode_reward': mean_ep_reward, 'step': step})
-            wandb.log({'mean_upperarm_ratio': mean_upperarm_ratio, 'step': step})
-
-        return mean_ep_reward, mean_upperarm_ratio
-    mean_ep_reward, mean_upperarm_ratio = run_eval_loop(sample_stochastically=False)
-    L.dump(step)
-    # if step >= args.saving_gif_start and (step // args.eval_freq) % factor == 0:
-    #     env._wrapped_env.show_reward = False
-
-    return mean_ep_reward, mean_upperarm_ratio
+        env.disconnect()
+        return info['upperarm_ratio']
+        
+    upperarm_ratio = run_eval_loop()
+    # L.log('eval/garment{}_motion{}_upperarm_ratio'.format(garment_id, motion_id), upperarm_ratio, step)
+    # L.dump(step)
+    return upperarm_ratio
 
 def make_agent(obs_shape, action_shape, args, device, agent="IQL"):
     # create the sac trainning agent
@@ -442,123 +303,220 @@ def make_agent(obs_shape, action_shape, args, device, agent="IQL"):
         use_teacher_ddpg_loss=args.__dict__.get("use_teacher_ddpg_loss", False),
     )
 
+# def make_agent(obs_shape, action_shape, args, device):
+
+    # agent_class = SAC_AWACAgent
+    # return agent_class(
+    #     args=args,
+    #     obs_shape=obs_shape,
+    #     action_shape=action_shape,
+    #     device=device,
+    #     hidden_dim=args.hidden_dim,
+    #     discount=args.discount,
+    #     init_temperature=args.init_temperature,
+    #     alpha_lr=args.alpha_lr,
+    #     alpha_beta=args.alpha_beta,
+    #     alpha_fixed=args.alpha_fixed,
+    #     actor_lr=args.actor_lr,
+    #     actor_beta=args.actor_beta,
+    #     actor_log_std_min=args.actor_log_std_min,
+    #     actor_log_std_max=args.actor_log_std_max,
+    #     actor_update_freq=args.actor_update_freq,
+    #     critic_lr=args.critic_lr,
+    #     critic_beta=args.critic_beta,
+    #     critic_tau=args.critic_tau,
+    #     critic_target_update_freq=args.critic_target_update_freq,
+    #     encoder_type=args.encoder_type,
+    #     encoder_feature_dim=args.encoder_feature_dim,
+    #     encoder_lr=args.encoder_lr,
+    #     encoder_tau=args.encoder_tau,
+    #     num_layers=args.num_layers,
+    #     num_filters=args.num_filters,
+    #     log_interval=args.log_interval,
+    #     detach_encoder=args.detach_encoder,
+    #     curl_latent_dim=args.curl_latent_dim,
+    #     actor_load_name=args.actor_load_name,
+    #     critic_load_name=args.critic_load_name,
+    #     agent=args.agent,
+    # )
+
 def main(args):
-    import re
     mp.set_start_method('forkserver', force=True)
+    # import tempfile
+    # tempfile.tempdir = '/scratch/alexis/tmp'
     if args.seed == -1:
         args.__dict__["seed"] = np.random.randint(1, 1000000)
     utils.set_seed_everywhere(args.seed)
 
     args.__dict__ = update_env_kwargs(args.__dict__)  # Update env_kwargs
-    if args.policy == 1:
-        args.horizon = 250
-    elif args.policy == 2:
-        args.horizon == 250
-    else:
-        args.horizon = 250
     
     print('Horizon', args.horizon)
-
-    # env = DressingSawyerHumanEnv(policy=args.policy, horizon=args.horizon, camera_pos=args.camera_pos, rand=args.rand, render=args.render, path_suffix=int(args.r1_w*10))
+    print('Occlusion?', args.occlusion)
 
     # make directory for logging
     ts = time.gmtime()
     ts = time.strftime("%m-%d", ts)
-    dataset_dir = args.dataset_dir
-    args.work_dir = logger.get_dir()
 
     # create replay buffer
-    # device = torch.device('cuda:{}'.format(args.cuda_idx) if torch.cuda.is_available() else 'cpu')
-    device = 'cuda:0'
+    device = torch.device('cuda:{}'.format(args.cuda_idx) if torch.cuda.is_available() else 'cpu')
+    print('device', device)
     action_shape = (6,)
-    obs_shape = (30000,)    
-     
-    # folder_path = "/scratch/alexis/data/2024-1205-pybullet-finetuning/iql-training-p1-reward_model1-only-12_05_07_16_53-000/model"
-    folder_path = "/scratch/alexis/data/2024-1205-pybullet-finetuning/iql-training-p2-reward_model1-only-12_05_05_50_38-000/model"
-    dir = os.path.dirname(folder_path)
-    
-    gif_path = '{}/gifs_new'.format(dir)
+    obs_shape = (30000,)
+        
+     # Note
+    dir = logger.get_dir()
+
+    args.traj_dir = '{}/trajs'.format(dir)
+    if not os.path.exists(args.traj_dir):
+        os.makedirs(args.traj_dir)
+
+    L = Logger(dir, use_tb=args.save_tb, chester_logger=logger)
+
+    gif_path = '{}/gifs'.format(dir)
     os.makedirs(gif_path, exist_ok=True)
     print('Saving gifs at: ', gif_path)
     args.gif_path = gif_path
 
-    # Regular expression pattern to match 'actor_xxx.pt' where xxx is a number
-    filename_pattern = re.compile(r"actor_(\d+)\.pt$")
+    # Note
+    # agents_ckpts = []
 
-    # List to store the matching filenames
-    agents = []
+    # for agent in agents:
+    #     agents_ckpts.append(os.path.join(folder_path, agent))
 
-    lst = [50000, 90000, 100000, 110000, 120000, 130000, 140000, 170000, 190000, 210000, 230000, 240000]
+    agents_ckpts = [
+                    "/home/alexis/dressing_sim/assistive_gym/envs/ckpt_one-hot_film_force/actor_best_test_20000_0.99791.pt",
+                    "/home/alexis/dressing_sim/assistive_gym/envs/ckpt_one-hot/actor_best_test_750137_0.75036.pt",
+                    "/home/alexis/dressing_sim/assistive_gym/envs/ckpt_one-hot_force_scratch/actor_best_test_210000_0.949.pt",
+                    "/home/alexis/dressing_sim/assistive_gym/envs/ckpt_one-hot/actor_best_test_750137_0.75036.pt",
+                    "/home/alexis/dressing_sim/assistive_gym/envs/ckpt_one-hot_film_no-force/actor_40000.pt",
+                    "/home/alexis/dressing_sim/assistive_gym/envs/ckpt_one-hot_film_force/actor_best_test_20000_0.99791.pt",
+                    "/home/alexis/dressing_sim/assistive_gym/envs/ckpt_one-hot_force_freeze-vision/actor_best_test_20000_0.99431.pt",
+                    "/home/alexis/dressing_sim/assistive_gym/envs/ckpt_one-hot_film_force_scratch/actor_best_test_170000_0.93025.pt"
+                    
+                    # "/home/alexis/dressing_sim/assistive_gym/envs/ckpt_one-hot_film_force/actor_best_test_20000_0.99791.pt"
+                    # "/scratch/alexis/data/2025-0104-pybullet-from-scratch/iql-training-from-scratch-force-reconstr-01_05_09_01_48-000/model/actor_best_test_400000_0.88345.pt",
+                    # "/scratch/alexis/data/2025-0110-pybullet-from-scratch/iql-training-from-scratch-force-reconstr-reduced-data-01_11_06_42_34-000/model/actor_best_test_280000_0.82393.pt"
+                    # "/scratch/alexis/data/2024-1220-pybullet-from-scratch/iql-training-from-scratch-with-force-p1-only-12_20_16_20_55-000/model/actor_best_test_80000_0.91073.pt",
+                    # "/home/alexis/assistive-gym-film/assistive_gym/envs/ckpt/actor_1900106.pt",
 
-    # Iterate through all files in the folder
-    for filename in os.listdir(folder_path):
-        if filename_pattern.match(filename) and int(filename_pattern.match(filename).group(1)) in lst:  # If the filename matches the pattern
-            agents.append(filename)
-    agents.sort(key=lambda x: int(filename_pattern.match(x).group(1)))
+                    # "/scratch/alexis/data/2024-1205-pybullet-finetuning/iql-training-p1-reward_model1-only-12_05_07_16_53-000/model/actor_60000.pt",
+                    # "/scratch/alexis/data/2024-1205-pybullet-finetuning/iql-training-p1-reward_model1-only-12_05_07_16_53-000/model/actor_220000.pt",
+                    # "/scratch/alexis/data/2024-1205-pybullet-finetuning/iql-training-p2-reward_model1-only-12_05_05_50_38-000/model/actor_best_test_20000_0.74911.pt"
+                    ]
 
-    agents_ckpts = []
-
-    for agent in agents:
-        agents_ckpts.append(os.path.join(folder_path, agent))
-    
-    print(agents_ckpts)
+    # agents_ckpts = ["/home/alexis/assistive-gym-film/assistive_gym/envs/ckpt_rss/actor_160111.pt"]
          
+    # Note
     agents = []
     import re
+
+    # high fric
+    elbow_angles = [-96.15]#, -88.0, -82.08, -95.4, -95.34, -94.25, -80.19, -88.99, -80.45, -97.32]
+    shoulder_angles = [78.46]#, 77.26, 82.51, 79.53, 81.39, 76.49, 77.33, 83.39, 75.89, 80.59]
+
+    # low fric
+    # elbow_angles = [-90.59, -84.3, -91.87, -84.45, -81.81, -89.86, -91.08, -94.28, -90.84, -84.64]
+    # shoulder_angles = [80.93, 78.13, 81.09, 80.1, 84.12, 78.27, 82.83, 76.8, 82.29, 76.56]
+
+    # mid fric
+    # elbow_angles = [-93.61, -91.26, -88.36, -86.75, -81.12, -97.16, -83.87, -94.32, -83.86, -95.64]
+    # shoulder_angles = [84.46, 83.34, 77.79, 82.2, 81.13, 76.96, 79.05, 82.47, 84.74, 78.47]
+
+    for idx in range(len(elbow_angles)):
+        # if idx == 0:
+        #     elbow_rand = -90
+        #     shoulder_rand = 80
+        # else:
+        # rng = np.random.default_rng()
+        # elbow_rand = np.round(-90 + rng.uniform(-10, 10), 2)
+        # shoulder_rand = np.round(80 + rng.uniform(-5, 5), 2)
+
+        elbow_rand = elbow_angles[idx]
+        shoulder_rand = shoulder_angles[idx]
+
+        for i in range(len(agents_ckpts)):
+            if i != 5:
+                continue
+            ckpt = agents_ckpts[i]
+
+            if i >= 5 or i == 0:
+                args.film_force = True
+            else:
+                args.film_force = False
+
+            if i == 2:
+                args.pc_feature_dim = 4
+            else:
+                args.pc_feature_dim = 3
+
+            if i <= 1:
+                agent = make_agent_force(
+                obs_shape=obs_shape,
+                action_shape=action_shape,
+                args=args,
+                device=device,
+                actor_load_name=ckpt,
+                force_critic_load_name='/home/alexis/dressing_sim/assistive_gym/envs/ckpt_force_model/force_critic_2000.pt'
+                )
+            else:
+                agent = make_agent(
+                    obs_shape=obs_shape,
+                    action_shape=action_shape,
+                    args=args,
+                    device=device
+                )
+                agent.load_actor_ckpt(ckpt)
+            # match = re.search(r'(\d+)(?=\D*$)', ckpt)
+            # if match:
+            #     step = int(match.group(1))
+            
+            # Note
+            agents.append((agent, i, elbow_rand, shoulder_rand))
+            i += 1
+        print('Num agents', len(agents))
+
+
+    # garment_ids = [3]
+    garment_ids = [1, 2, 3]
+
+    # Note
+    # motion_ids = [11, 12, 14, 15, 16, 17, 18]
+    # motion_ids = [1, 2, 4, 5, 6, 7, 8]
+    motion_ids = [1, 2, 4, 5, 6, 7, 8]#, 11, 12, 14, 15, 16, 17, 18]
     
-    for ckpt in agents_ckpts:
-        agent = make_agent(
-            obs_shape=obs_shape,
-            action_shape=action_shape,
-            args=args,
-            device=device
-        )
-        agent.load_actor_ckpt(ckpt)
-        match = re.search(r'(\d+)(?=\D*$)', ckpt)
-        if match:
-            step = int(match.group(1))
+
+    # motion_ids = [0]
+
+    # pose_ids = [i for i in range(28)]
+
+    # Note
+    # pairs = [(x, 0, y) for x in garment_ids for y in pose_ids]
+    pairs = [(x, y, -1) for x in garment_ids for y in motion_ids]
+
+    # Note
+    print('Num pairs', int(len(pairs)))
         
-        agents.append((agent, dir, step))
-    print('Numer agents', len(agents))
+    for agent, step, elbow_rand, shoulder_rand in agents:
+        episode = int(step)
+        print("Eval begin step = {}".format(step))
+        L.log('eval-number', episode, step)
 
-    parallel_evaluator = ParallelEvaluator(num_workers=len(agents))
-    parallel_evaluator.evaluate_agents(agents, args)
-    parallel_evaluator.close()
+        # Note
+        parallel_evaluator = ParallelEvaluator(num_workers=int(len(pairs)/4))
+        dressed_ratios = parallel_evaluator.evaluate_agents(agent, step, elbow_rand, shoulder_rand, pairs, args)
+        parallel_evaluator.close()
 
-    
-        
-    # for step in tqdm(range(args.num_train_steps)):
-    #     # evaluate agent periodically
-    #     if step%args.eval_freq == 0 and step > 0:
-    #         episode = int(step/args.eval_freq)
-    #         print("Eval begin step = {}".format(step))
-    #         L.log('eval-number', episode, step)
-    #         # print("Eval is happening")
-    #         avg_traj_returns_unseen, avg_upper_arm_ratios_unseen = evaluate(agent, video_dir, L, step, args)
-    #         if avg_upper_arm_ratios_unseen > best_avg_upper_arm_ratios_unseen:
-    #             best_avg_upper_arm_ratios_unseen = avg_upper_arm_ratios_unseen
-    #             if args.use_wandb: wandb.log({'avg_upper_arm_ratios': avg_upper_arm_ratios_unseen, 'step': step})
+        L.log('eval/mean_upperarm_ratio', dressed_ratios, step)
+        L.dump(step)
 
-    #             agent.save(model_dir, step, episode, is_best_test=True, best_avg_return_test=round(best_avg_upper_arm_ratios_unseen, 5))
-           
-    #         if args.save_model:
-    #             agent.save(model_dir, step, episode)
-
-    #         if args.save_buffer:
-    #             for i in range(args.replay_buffer_num):
-    #                 replay_buffers[i].save(buffer_dir, i)
-
-    #         if args.evaluate_only:
-    #             exit()
-
-    #     # run training update
-    #     agent.update(replay_buffers, L, step, pose_id=0)
+        if args.use_wandb: wandb.log({'mean_upper_arm_ratios': dressed_ratios, 'step': step})
 
 
 if __name__ == "__main__":
+    mp.set_start_method('spawn', force=True)
         
-    exp_prefix =  '2024-1203-pybullet-from-scratch'
-    load_variant_path = '/home/alexis/assistive-gym-film/assistive_gym/envs/variant_real_world_final.json'
+    exp_prefix =  '2025-0819-pybullet-eval-baselines'
+    load_variant_path = '/home/alexis/dressing_sim/assistive_gym/envs/variants/variant_eval.json'
     loaded_vg = create_vg_from_json(load_variant_path)
     print("Loaded configs from ", load_variant_path)
     vg = loaded_vg
@@ -568,7 +526,9 @@ if __name__ == "__main__":
 
     exp_count = 0
     timestamp = now.strftime('%m_%d_%H_%M_%S')
-    exp_name = "iql-training-from-scratch-reward_model1-only"
+    # exp_name = "eval-scratch-film-0.01_thresh_for_fcvp_high-fric-female-smaller3"
+    exp_name = 'get_force_plots'
+
     print(exp_name)
     exp_name = "{}-{}-{:03}".format(exp_name, timestamp, exp_count)
     log_dir = '/scratch/alexis/data/' + exp_prefix + "/" + exp_name

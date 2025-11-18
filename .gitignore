@@ -132,3 +132,8 @@ assistive_gym/envs/sim_gifs
 assistive_gym/envs/sim_imgs
 assistive_gym/envs/assets/data
 assistive_gym/envs/wandb
+
+# not main method
+assistive_gym/fcvp
+assistive_gym//scripts
+assistive_gym/unused
