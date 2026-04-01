@@ -122,6 +122,9 @@ venv.bak/
 
 *.wandb
 *.yaml
+*.yml
+*.txt
+
 
 # data
 assistive_gym/envs/data
@@ -132,8 +135,9 @@ assistive_gym/envs/sim_gifs
 assistive_gym/envs/sim_imgs
 assistive_gym/envs/assets/data
 assistive_gym/envs/wandb
+assistive_gym/eval_results
 
 # not main method
 assistive_gym/fcvp
-assistive_gym//scripts
+assistive_gym/metrics_scripts
 assistive_gym/unused
