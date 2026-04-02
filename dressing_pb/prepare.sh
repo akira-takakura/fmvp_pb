@@ -1,1 +1,2 @@
 export PYTHONPATH=${PWD}:$PYTHONPATH
+export PYTHONPATH=${PWD}/assistive_gym:$PYTHONPATH

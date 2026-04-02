@@ -5,7 +5,7 @@ import os
 import copy
 from chester import logger
 import utils
-from default_config import DEFAULT_CONFIG
+from scripts.default_config import DEFAULT_CONFIG
 from logger import Logger
 import time
 import datetime

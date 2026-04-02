@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 # import wandb
-from encoder import make_encoder
+from models.encoder import make_encoder
 import utils
 
 LOG_FREQ = 10000

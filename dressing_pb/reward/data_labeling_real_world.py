@@ -5,8 +5,8 @@ import os
 import copy
 from chester import logger
 import utils
-from default_config import DEFAULT_CONFIG
-from SAC_AWAC import SAC_AWACAgent
+from scripts.default_config import DEFAULT_CONFIG
+from algo.SAC_AWAC import SAC_AWACAgent
 from visualization import save_numpy_as_gif
 import time
 import datetime
@@ -135,7 +135,6 @@ def get_label(vlm_dict_list_1, vlm_dict_list_2, batch_number):
     pref_labels2 = []
     pref_labels3 = []
 
-
     # print('Dict len: ', len(vlm_dict_list_1))
     for idx in range(len(vlm_dict_list_1)):
         img1 = vlm_dict_list_1[idx]["img"]
@@ -191,20 +190,17 @@ def get_label(vlm_dict_list_1, vlm_dict_list_2, batch_number):
         # else:
         #     pref_labels3.append(-1)
 
-        
+    
     
     pref_labels1 = np.array(pref_labels1).reshape(-1, 1)
-    # print('pref labels 1 len', pref_labels1.shape)
 
     good_idx1 = (pref_labels1 != -1).flatten()
-    # print('good idx len', len(good_idx1))
+
     dict_list_1_l1 = []
     dict_list_2_l1 = []
     labels1 = []
     combined_images_list1 = []
     gt_labels_1 = []
-    # print("vlm_labels:", vlm_labels)
-    # print("good_idx:", good_idx)
     for ind in range(len(good_idx1)):
         if good_idx1[ind]:
             dict_list_1_l1.append(vlm_dict_list_1[ind])
@@ -252,11 +248,7 @@ def get_label(vlm_dict_list_1, vlm_dict_list_2, batch_number):
 
                 
     if len(labels1) > 0:
-        # print("label 1 obtained")
-        # print("label:", labels1)
-        # print("gt label:", gt_labels_1)
         from sklearn.metrics import classification_report, accuracy_score
-        # print(classification_report(gt_labels_1, labels1))
         acc1 = accuracy_score(gt_labels_1, labels1)
         print('acc1:', acc1)
 
@@ -391,9 +383,6 @@ def train_reward_model(data_dir="/scratch/alexis/data/data_collection_trajs"):
     data = {}
     
     file_nos = os.listdir(data_dir)
-    # file_nos = [file for file in file_nos if not file.endswith("0.0_0.0.pkl")]
-
-    # file_nos.remove("videos")
     file_nos = sorted(file_nos)
     file_nos = [os.path.join(data_dir, file_no) for file_no in file_nos]
     print(len(file_nos))
@@ -411,20 +400,3 @@ def train_reward_model(data_dir="/scratch/alexis/data/data_collection_trajs"):
     
 train_reward_model()
     
-# exp_prefix = "vlm_cached_gpt4" #'2024-0728-real-model-experiments'
-# load_variant_path = "/home/sreyas/Desktop/Projects/softagent_rpad/dressing_motion/curl/variant_store_cached_queries.json"
-# loaded_vg = create_vg_from_json(load_variant_path)
-# print("Loaded configs from ", load_variant_path)
-# vg = loaded_vg
-# print(vg)
-# print('Number of configurations: ', len(vg.variants()))
-# now = datetime.datetime.now(dateutil.tz.tzlocal())
-
-# exp_count = 0
-# timestamp = now.strftime('%m_%d_%H_%M_%S')
-# exp_name = "real_world_vlm_queried-gpt4o-descriptive-prompt"
-# print(exp_name)
-# exp_name = "{}-{}-{:03}".format(exp_name, timestamp, exp_count)
-# log_dir = "data" + "/local/" + exp_prefix + "/" + exp_name
-
-# run_task(vg, log_dir=log_dir, exp_name=exp_name)

@@ -14,13 +14,13 @@ from chester import logger
 import utils
 
 from visualization import save_numpy_as_gif
-from SAC_AWAC import SAC_AWACAgent
+from algo.SAC_AWAC import SAC_AWACAgent
 
 
 import cv2, pickle
 import cProfile, pstats, io
 import matplotlib
-from dressing_envs import DressingSawyerHumanEnv
+from assistive_gym.dressing_envs import DressingSawyerHumanEnv
 # matplotlib.use('agg')
 
 

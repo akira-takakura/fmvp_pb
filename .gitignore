@@ -6,8 +6,8 @@ __pycache__/
 .DS_Store
 *.html
 *.out
-assistive_gym/envs/assets/smpl_models/smplx/
-assistive_gym/envs/assets/smpl_models/human_params/
+dressing_pb/assistive_gym/assets/smpl_models/smplx/
+dressing_pb/assistive_gym/assets/smpl_models/human_params/
 trained_models*
 *.json
 
@@ -122,22 +122,21 @@ venv.bak/
 
 *.wandb
 *.yaml
-*.yml
 *.txt
 
 
 # data
-assistive_gym/envs/data
-assistive_gym/envs/ckpt
-assistive_gym/envs/traj_data
-assistive_gym/envs/traj_gifs
-assistive_gym/envs/sim_gifs
-assistive_gym/envs/sim_imgs
-assistive_gym/envs/assets/data
-assistive_gym/envs/wandb
-assistive_gym/eval_results
+dressing_pb/assistive_gym/data
+dressing_pb/assistive_gym/ckpt
+dressing_pb/assistive_gym/traj_data
+dressing_pb/assistive_gym/traj_gifs
+dressing_pb/assistive_gym/sim_gifs
+dressing_pb/assistive_gym/sim_imgs
+dressing_pb/assistive_gym/assets/data
+dressing_pb/assistive_gym/wandb
+dressing_pb/eval_results
 
 # not main method
-assistive_gym/fcvp
-assistive_gym/metrics_scripts
-assistive_gym/unused
+dressing_pb/fcvp
+dressing_pb/metrics_scripts
+dressing_pb/unused

@@ -15,7 +15,7 @@ import cv2
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score
 
-from encoder import make_encoder
+from models.encoder import make_encoder
 import copy
 
 device = 'cuda:3'
@@ -1766,7 +1766,7 @@ class RewardModelImage:
                 useful_indices.append(1)
                     
         vlm_labels = []
-        from dressing_motion.curl.vlm_reward.gpt4_infer import gpt4v_infer_2
+        from assistive_gym.dressing_motion.curl.vlm_reward.gpt4_infer import gpt4v_infer_2
         wandb.log({"Query Prompt": gpt_free_query_env_prompts[self.env_name]})
         for idx, (img_path_1, img_path_2) in enumerate(gpt_two_image_paths):
             print("querying vlm {}/{}".format(idx, len(gpt_two_image_paths)))

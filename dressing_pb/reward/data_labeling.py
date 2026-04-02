@@ -5,8 +5,8 @@ import os
 import copy
 from chester import logger
 import utils
-from default_config import DEFAULT_CONFIG
-from SAC_AWAC import SAC_AWACAgent
+from scripts.default_config import DEFAULT_CONFIG
+from algo.SAC_AWAC import SAC_AWACAgent
 from visualization import save_numpy_as_gif
 import time
 import datetime

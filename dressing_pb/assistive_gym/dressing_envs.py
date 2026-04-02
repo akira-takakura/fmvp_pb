@@ -1,5 +1,4 @@
-from dressing import DressingEnv
-# from dressing_data import DressingEnvData
+from assistive_gym.dressing import DressingEnv
 
 from agents import sawyer, human
 from agents.sawyer import Sawyer

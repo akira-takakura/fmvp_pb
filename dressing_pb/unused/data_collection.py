@@ -20,10 +20,10 @@ from chester.run_exp import run_experiment_lite, VariantGenerator
 
 from chester import logger
 import utils
-from default_config import DEFAULT_CONFIG
+from scripts.default_config import DEFAULT_CONFIG
 from logger import Logger
-from dressing_envs import DressingSawyerHumanEnvData
-from SAC_AWAC import SAC_AWACAgent
+from assistive_gym.dressing_envs import DressingSawyerHumanEnvData
+from algo.SAC_AWAC import SAC_AWACAgent
 
 import multiprocessing as mp
 from multiprocessing import Pool

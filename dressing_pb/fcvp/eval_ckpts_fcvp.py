@@ -20,10 +20,10 @@ from collections import deque
 from torch_geometric.data import Batch
 from chester import logger
 import utils
-from default_config import DEFAULT_CONFIG
+from scripts.default_config import DEFAULT_CONFIG
 from logger import Logger
-from iql_pointcloud import IQLAgent
-from dressing_envs import DressingSawyerHumanEnv
+from algo.iql_pointcloud import IQLAgent
+from assistive_gym.dressing_envs import DressingSawyerHumanEnv
 
 import multiprocessing as mp
 from multiprocessing import Pool

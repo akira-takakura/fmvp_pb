@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from pointnet2 import RegressionNet
-from pointnet2_segmentation import Net
+from models.pointnet2 import RegressionNet
+from models.pointnet2_segmentation import Net
 import torch.nn.functional as F
 from torch_geometric.data import Data
 import torch_geometric

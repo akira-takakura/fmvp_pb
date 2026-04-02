@@ -22,7 +22,7 @@ from chester import logger
 import utils
 from rss_version.default_config import DEFAULT_CONFIG
 from logger import Logger
-from dressing_envs import DressingSawyerHumanEnv
+from assistive_gym.dressing_envs import DressingSawyerHumanEnv
 from rss_version.SAC_AWAC import SAC_AWACAgent
 
 import multiprocessing as mp

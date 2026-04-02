@@ -19,15 +19,14 @@ import wandb
 from chester.run_exp import run_experiment_lite, VariantGenerator
 
 from torch_geometric.data import Batch
-from reward_model import RewardModel3, RewardModelVLM
 from chester import logger
 import utils
-from default_config import DEFAULT_CONFIG
+from scripts.default_config import DEFAULT_CONFIG
 from logger import Logger
-from pc_replay_buffer import PointCloudReplayBuffer
-from iql_pointcloud import IQLAgent
+from algo.pc_replay_buffer import PointCloudReplayBuffer
+from algo.iql_pointcloud import IQLAgent
 from visualization import save_numpy_as_gif
-from dressing_envs import DressingSawyerHumanEnv
+from assistive_gym.dressing_envs import DressingSawyerHumanEnv
 import pybullet as p
 
 import multiprocessing as mp

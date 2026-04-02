@@ -10,10 +10,10 @@ import torch_geometric
 
 # import wandb
 import utils
-from encoder import make_encoder
-from pointnet2 import MLP
+from models.encoder import make_encoder
+from models.pointnet2 import MLP
 from torch_geometric.data import Data, Batch
-from SAC_AWAC import gaussian_logprob, squash, weight_init
+from algo.SAC_AWAC import gaussian_logprob, squash, weight_init
 
 
 LOG_FREQ = 10000

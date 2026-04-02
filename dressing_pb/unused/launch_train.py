@@ -4,7 +4,7 @@ import click
 import socket
 from chester.run_exp import run_experiment_lite, VariantGenerator
 from softgym.registered_env import env_arg_dict
-from dressing_motion.curl.train import run_task
+from assistive_gym.dressing_motion.curl.train import run_task
 
 def get_sa_mlp_list(layer):
     if layer == 3:

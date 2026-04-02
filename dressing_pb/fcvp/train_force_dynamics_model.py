@@ -18,9 +18,9 @@ from logger import Logger
 
 from chester import logger
 import utils
-from default_config import DEFAULT_CONFIG
-from SAC_Q_function import ForceVisionAgent
-from dressing_envs import DressingSawyerHumanEnv
+from scripts.default_config import DEFAULT_CONFIG
+from algo.SAC_Q_function import ForceVisionAgent
+from assistive_gym.dressing_envs import DressingSawyerHumanEnv
 from dataset import ForceVisionDataset
 
 

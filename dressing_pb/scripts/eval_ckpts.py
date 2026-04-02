@@ -19,20 +19,17 @@ import wandb
 from chester.run_exp import run_experiment_lite, VariantGenerator
 from collections import deque
 
-
 from torch_geometric.data import Batch
 from chester import logger
 import utils
-from default_config import DEFAULT_CONFIG
+from scripts.default_config import DEFAULT_CONFIG
 from logger import Logger
-from iql_pointcloud import IQLAgent
-from dressing_envs import DressingSawyerHumanEnv
+from algo.iql_pointcloud import IQLAgent
+from assistive_gym.dressing_envs import DressingSawyerHumanEnv
 # from train_force_dynamics_model import make_agent as make_agent_force
 
 import multiprocessing as mp
 from multiprocessing import Pool
-
-# import cProfile, pstats, io
 
 class ParallelEvaluator:
     """
@@ -117,9 +114,6 @@ def vv_to_args(vv):
     return args
 
 def run_task(vv, log_dir=None, exp_name=None):
-    # if resume from directory
-    # log_dir = "/home/sreyas/Desktop/Projects/softagent_rpad/data/reward_collection/"
-
     if log_dir or logger.get_dir() is None:
         logger.configure(dir=log_dir, exp_name=exp_name, format_strs=['csv'])
     logdir = logger.get_dir()
@@ -166,24 +160,9 @@ def check_rb_min_size(replay_buffers, rb_limit):
 # run evaluation of a policy
 def evaluate(arg):
     agent, step, elbow_rand, shoulder_rand, garment_id, motion_id, pose_id, args = arg
-    # if step == 0:
-    #     reconstruct = True
-    # else:
-    #     reconstruct = False
-
-    # if step <= 1:
-    #     use_force = True
-    # else:
-    #     use_force = False
-
-    if step == 2:
-        args.use_force = True
-    else:
-        args.use_force = False
 
     def run_eval_loop():
-        # env = DressingSawyerHumanEnv(policy=args.policy, horizon=args.horizon, camera_pos=args.camera_pos, occlusion=args.occlusion, rand=args.rand, render=args.render, gif_path=args.gif_path)
-        env = DressingSawyerHumanEnv(gender=args.gender, body_size=args.body_size, policy=int(step), horizon=args.horizon, camera_pos=args.camera_pos, occlusion=args.occlusion, render=args.render, gif_path=args.gif_path, one_hot=args.one_hot, reconstruct=args.reconstruct, use_force=args.use_force, adv=args.adv, mass=args.mass, friction=args.friction, repulsion=args.repulsion, elbow_rand=elbow_rand, shoulder_rand=shoulder_rand)
+        env = DressingSawyerHumanEnv(gender=args.gender, body_size=args.body_size, policy=int(step), horizon=args.horizon, camera_pos=args.camera_pos, render=args.render, gif_path=args.gif_path, mass=args.mass, friction=args.friction, repulsion=args.repulsion, elbow_rand=elbow_rand, shoulder_rand=shoulder_rand)
 
         obs, force_vector = env.reset(garment_id=garment_id, motion_id=motion_id, pose_id=pose_id, step_idx = step)
         done = False
@@ -192,7 +171,7 @@ def evaluate(arg):
         rewards = []
         traj_dataset = []
 
-        if step == 0 or step == 1:
+        if step == 1:
             force_history = deque([], maxlen=5)
             for i in range(5):
                 force_history.append(0)
@@ -200,10 +179,9 @@ def evaluate(arg):
         
         t = 0
         while not done:
-            print('------Iteration', env.iteration)
-
+            print('------Step', env.iteration)
             with utils.eval_mode(agent):
-                if step == 0 or step == 1:
+                if step == 1:
                     if env.on_forearm or env.on_upperarm:
                         action, progression_direction, predicted_force = agent.plan_action_constrain_force(obs, force_vector, np.array(force_history))
                     else:
@@ -211,9 +189,7 @@ def evaluate(arg):
                 else:
                         action = agent.select_action(obs, force_vector)
             step_action = action.reshape(-1, 6)[-1].flatten()
-            # step_action[3] = 0
 
-            # step_action[:3] *= 0.01
             x, y, z = step_action[:3].copy() * args.action_scale
             x_r, y_r, z_r = step_action[3:].copy()
 
@@ -221,7 +197,6 @@ def evaluate(arg):
             step_action[1] = x
             step_action[2] = y
 
-            # step_action[3] = z_r
             step_action[3] = 0
             step_action[4] = 0
             step_action[5] = y_r
@@ -237,7 +212,7 @@ def evaluate(arg):
                 step_action[3:] *= dtheta
 
             obs, reward, done, info, force_vector = env.step(step_action)
-            if step == 0 or step == 1:
+            if step == 1:
                 force_history.append(force_vector.sum())
 
             step_data = {
@@ -260,8 +235,6 @@ def evaluate(arg):
         return info['upperarm_ratio']
         
     upperarm_ratio = run_eval_loop()
-    # L.log('eval/garment{}_motion{}_upperarm_ratio'.format(garment_id, motion_id), upperarm_ratio, step)
-    # L.dump(step)
     return upperarm_ratio
 
 def make_agent(obs_shape, action_shape, args, device, agent="IQL"):
@@ -305,17 +278,13 @@ def make_agent(obs_shape, action_shape, args, device, agent="IQL"):
 
 def main(args):
     mp.set_start_method('forkserver', force=True)
-    # import tempfile
-    # tempfile.tempdir = '/scratch/alexis/tmp'
+
     if args.seed == -1:
         args.__dict__["seed"] = np.random.randint(1, 1000000)
     utils.set_seed_everywhere(args.seed)
 
     args.__dict__ = update_env_kwargs(args.__dict__)  # Update env_kwargs
     
-    print('Horizon', args.horizon)
-    print('Occlusion?', args.occlusion)
-
     # make directory for logging
     ts = time.gmtime()
     ts = time.strftime("%m-%d", ts)
@@ -340,23 +309,8 @@ def main(args):
     print('Saving gifs at: ', gif_path)
     args.gif_path = gif_path
 
-    # Note
-    # agents_ckpts = []
+    ckpt = "ckpts/ckpt_one-hot_film_force/actor_best_test_20000_0.99791.pt"
 
-    # for agent in agents:
-    #     agents_ckpts.append(os.path.join(folder_path, agent))
-
-    agents_ckpts = [
-                    "/home/alexis/dressing_sim/assistive_gym/envs/ckpt_one-hot_film_force/actor_best_test_20000_0.99791.pt",
-                    "/home/alexis/dressing_sim/assistive_gym/envs/ckpt_one-hot/actor_best_test_750137_0.75036.pt",
-                    "/home/alexis/dressing_sim/assistive_gym/envs/ckpt_one-hot_force_scratch/actor_best_test_210000_0.949.pt",
-                    "/home/alexis/dressing_sim/assistive_gym/envs/ckpt_one-hot/actor_best_test_750137_0.75036.pt",
-                    "/home/alexis/dressing_sim/assistive_gym/envs/ckpt_one-hot_film_no-force/actor_40000.pt",
-                    "/home/alexis/dressing_sim/assistive_gym/envs/ckpt_one-hot_film_force/actor_best_test_20000_0.99791.pt",
-                    "/home/alexis/dressing_sim/assistive_gym/envs/ckpt_one-hot_force_freeze-vision/actor_best_test_20000_0.99431.pt",
-                    "/home/alexis/dressing_sim/assistive_gym/envs/ckpt_one-hot_film_force_scratch/actor_best_test_170000_0.93025.pt"
-                                        ]
-       
     # Note
     agents = []
     import re
@@ -384,49 +338,18 @@ def main(args):
 
         elbow_rand = elbow_angles[idx]
         shoulder_rand = shoulder_angles[idx]
+        
 
-        for i in range(len(agents_ckpts)):
-            if i != 5:
-                continue
-            ckpt = agents_ckpts[i]
+        agent = make_agent(
+            obs_shape=obs_shape,
+            action_shape=action_shape,
+            args=args,
+            device=device
+        )
+        agent.load_actor_ckpt(ckpt)
+        agents.append((agent, 0, elbow_rand, shoulder_rand))
 
-            if i >= 5 or i == 0:
-                args.film_force = True
-            else:
-                args.film_force = False
-
-            if i == 2:
-                args.pc_feature_dim = 4
-            else:
-                args.pc_feature_dim = 3
-
-            if i <= 1:
-                agent = make_agent_force(
-                obs_shape=obs_shape,
-                action_shape=action_shape,
-                args=args,
-                device=device,
-                actor_load_name=ckpt,
-                force_critic_load_name='/home/alexis/dressing_sim/assistive_gym/envs/ckpt_force_model/force_critic_2000.pt'
-                )
-            else:
-                agent = make_agent(
-                    obs_shape=obs_shape,
-                    action_shape=action_shape,
-                    args=args,
-                    device=device
-                )
-                agent.load_actor_ckpt(ckpt)
-            # match = re.search(r'(\d+)(?=\D*$)', ckpt)
-            # if match:
-            #     step = int(match.group(1))
-            
-            # Note
-            agents.append((agent, i, elbow_rand, shoulder_rand))
-            i += 1
-        print('Num agents', len(agents))
-
-    garment_ids = [1, 2, 3]
+    garment_ids = [3]
 
     # motion_ids = [11, 12, 14, 15, 16, 17, 18]
     # motion_ids = [1, 2, 4, 5, 6, 7, 8]
@@ -439,7 +362,7 @@ def main(args):
         print("Eval begin step = {}".format(step))
         L.log('eval-number', episode, step)
 
-        parallel_evaluator = ParallelEvaluator(num_workers=int(len(pairs)/4))
+        parallel_evaluator = ParallelEvaluator(num_workers=int(len(pairs)))
         dressed_ratios = parallel_evaluator.evaluate_agents(agent, step, elbow_rand, shoulder_rand, pairs, args)
         parallel_evaluator.close()
 
@@ -453,22 +376,18 @@ if __name__ == "__main__":
     mp.set_start_method('spawn', force=True)
         
     exp_prefix =  'test_before_release'
-    load_variant_path = '/home/alexis/dressing_sim/assistive_gym/envs/variants/variant_eval.json'
+    load_variant_path = 'variants/variant_eval.json'
     loaded_vg = create_vg_from_json(load_variant_path)
     print("Loaded configs from ", load_variant_path)
     vg = loaded_vg
-    print(vg)
-    print('Number of configurations: ', len(vg.variants()))
     now = datetime.datetime.now(dateutil.tz.tzlocal())
 
     exp_count = 0
     timestamp = now.strftime('%m_%d_%H_%M_%S')
-    # exp_name = "eval-scratch-film-0.01_thresh_for_fcvp_high-fric-female-smaller3"
     exp_name = 'get_force_plots'
 
     print(exp_name)
     exp_name = "{}-{}-{:03}".format(exp_name, timestamp, exp_count)
-    log_dir = '/home/alexis/dressing_sim/assistive_gym/eval_results/' + exp_prefix + "/" + exp_name
+    log_dir = '/home/alexis/dressing_sim/dressing_pb/eval_results/' + exp_prefix + "/" + exp_name
 
     run_task(vg, log_dir=log_dir, exp_name=exp_name)
-    #eval()

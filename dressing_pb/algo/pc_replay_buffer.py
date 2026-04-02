@@ -5,7 +5,6 @@ import torch
 import os.path as osp
 import os
 from utils import load_data_by_name
-# from dressing_motion.dress_env import process_obs
 from torch_geometric.data import Data
 import scipy
 import copy

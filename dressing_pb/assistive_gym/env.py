@@ -7,7 +7,7 @@ from screeninfo import get_monitors
 import pybullet as p
 from keras.models import load_model
 
-from util import Util
+from assistive_gym.util import Util
 from human_creation import HumanCreation
 from agents import agent, human, robot
 from agents.agent import Agent
@@ -58,7 +58,7 @@ class AssistiveEnv(gym.Env):
         self.furniture = Furniture()
 
         self.configp = configparser.ConfigParser()
-        self.configp.read(os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'config.ini'))
+        self.configp.read(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config.ini'))
         # Human preference weights
         self.C_v = self.config('velocity_weight', 'human_preferences')
         self.C_f = self.config('force_nontarget_weight', 'human_preferences')
@@ -190,25 +190,16 @@ class AssistiveEnv(gym.Env):
                 if self.motion_id == 0:
                     continue
                 
-                if self.garment_id == 1:
-                    start = 15 if self.policy == 2 else 30
-                elif self.garment_id == 2:
-                    start = 20 if self.policy == 2 else 30
+                if self.garment_id == 1 or self.garment_id == 2:
+                    start = 30
                 elif self.garment_id == 3:
-                    start = 40
-                elif self.garment_id == 4:
-                    start = 40
-                elif self.garment_id == 0:
-                    start = 20
+                    start = 45
 
                 if self.iteration >= start:
-                    # print('here1')
                     if self.arm_traj_idx == len(self.arm_traj) or self.arm_traj_idx < 0:
                         continue
-                    # print('here2')
                     agent_joint_angles = self.arm_traj[self.arm_traj_idx]
                     curr_pos, curr_orient = self.human.get_pos_orient(18)
-                    # self.arm_traj_idx += 1
 
                     if self.repeat_traj:
                         if self.arm_traj_idx == len(self.arm_traj) - 1:
@@ -226,7 +217,6 @@ class AssistiveEnv(gym.Env):
                             break
 
             else:
-                # continue
                 joint = agent.right_end_effector if 'right' in agent.controllable_joints else agent.left_end_effector
                 ik_indices = agent.right_arm_ik_indices if 'right' in agent.controllable_joints else agent.left_arm_ik_indices
                 # NOTE: Adding action to current pose can cause drift over time
@@ -242,15 +232,12 @@ class AssistiveEnv(gym.Env):
 
                 rot_quat = rotation_R.as_quat()
 
-                print('check nan', rot_quat)
-
                 if np.any(np.isnan(rotation_R.as_quat())) or np.any(np.isinf(rotation_R.as_quat())):
                     rotation_R = R.identity()
                     print('fixed nan/inf')
                 
                 if scipy.linalg.norm(rotation_R.as_quat()) < 1e-4:
                     rotation_R = R.identity()
-                print('check quats', ee_cur_R.as_quat(), rotation_R.as_quat())
 
                 new_ee_R = rotation_R * ee_cur_R
                 new_ee_quat = new_ee_R.as_quat()

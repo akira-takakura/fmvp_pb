@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import wandb
 import utils
-from encoder import make_encoder
+from models.encoder import make_encoder
 from rss_version.models.pcgrad_optim import PCGradOptim
 
 LOG_FREQ = 10000

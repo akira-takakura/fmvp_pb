@@ -8,8 +8,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import wandb
 import utils
-from encoder import make_encoder
-from SAC_AWAC import *
+from models.encoder import make_encoder
+from algo.SAC_AWAC import *
 EXP_ADV_MAX = 100.0
 LOG_STD_MIN = -20.0
 LOG_STD_MAX = 2.0
