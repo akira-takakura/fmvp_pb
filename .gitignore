@@ -140,3 +140,8 @@ dressing_pb/eval_results
 dressing_pb/fcvp
 dressing_pb/metrics_scripts
 dressing_pb/unused
+
+examples    
+images
+pyrender
+LICENSE
