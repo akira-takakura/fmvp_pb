@@ -1,41 +1,50 @@
 from setuptools import setup, find_packages
-import sys, os.path
+import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'assistive_gym'))
+# Get the directory where setup.py is located
+here = os.path.abspath(os.path.dirname(__file__))
 
-# with open("README.md", "r") as f:
-#     long_description = f.read()
+# Dynamically find all asset files
+assets_dir = os.path.join(here, 'assistive_gym', 'envs', 'assets')
+data_files = [os.path.join(here, 'assistive_gym', 'config.ini')]
 
-directory = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'assistive_gym', 'envs', 'assets')
-data_files = [os.path.join(os.path.dirname(os.path.realpath(__file__)), 'assistive_gym', 'config.ini')]
+if os.path.exists(assets_dir):
+    for root, dirs, files in os.walk(assets_dir):
+        for fn in files:
+            # Get path relative to the package folder
+            full_path = os.path.join(root, fn)
+            data_files.append(os.path.relpath(full_path, os.path.join(here, 'assistive_gym')))
 
-for root, dirs, files in os.walk(directory):
-    for fn in files:
-        data_files.append(os.path.join(root, fn))
-
-setup(name='assistive-gym',
+setup(
+    name='fmvp-pb',  # Updated name
     version='1.0',
     packages=find_packages(),
-    python_requires='>=3',
-    install_requires=['gym>=0.2.3', 'pybullet @ git+https://github.com/Zackory/bullet3.git@pybullet_3_0_9#egg=pybullet', 'numpy', 'keras==2.3.0', 'tensorflow', 'h5py==2.10.0', 'smplx', 'trimesh', 'ray[rllib]', 'numpngw', 'tensorflow-probability==0.7.0', 'matplotlib'] + ['screeninfo==0.6.1' if sys.version_info >= (3, 6) else 'screeninfo==0.2'],
-    # description='Physics simulation for assistive robotics and human-robot interaction.',
-    # long_description=long_description,
-    long_description_content_type="text/markdown",
-    url='https://github.com/Healthcare-Robotics/assistive-gym',
-    author='Zackory Erickson',
-    author_email='zackory@gatech.edu',
+    python_requires='>=3.6',
+    install_requires=[
+        'gym>=0.2.3',
+        'pybullet @ git+https://github.com/Zackory/bullet3.git@pybullet_3_0_9#egg=pybullet',
+        'numpy',
+        'keras==2.3.0',
+        'tensorflow',
+        'h5py==2.10.0',
+        'smplx',
+        'trimesh',
+        'ray[rllib]',
+        'numpngw',
+        'tensorflow-probability>=0.7.0',
+        'matplotlib',
+        'screeninfo>=0.6.1'
+    ],
+    url='https://github.com/hyhalexis/fmvp_pb',
+    author='Alexis',
     license='MIT',
-    platforms='any',
-    keywords=['robotics', 'assitive robotics', 'human-robot interaction', 'physics simulation'],
+    description='Cleaned release for fmvp_pb simulation',
+    long_description_content_type="text/markdown",
     package_data={'assistive_gym': data_files},
+    include_package_data=True,
     classifiers=[
-        'Development Status :: 5 - Production/Stable',
-        'License :: OSI Approved :: MIT License',
-        'Operating System :: Microsoft :: Windows', 'Operating System :: POSIX :: Linux',
-        'Operating System :: MacOS', 'Intended Audience :: Science/Research',
-        "Programming Language :: Python",
-        'Programming Language :: Python :: 3.6', 'Topic :: Games/Entertainment :: Simulation',
+        'Intended Audience :: Science/Research',
+        'Programming Language :: Python :: 3',
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
-        'Framework :: Robot Framework'
     ],
 )

@@ -618,7 +618,7 @@ class DressingEnv(AssistiveEnv):
         
         # Wait for the cloth to settle
         for i in range(20):
-            print(i)
+            print(f'Waiting for garment to settle - step {i}')
             p.stepSimulation(physicsClientId=self.id)
         print('Settled')
 
@@ -638,7 +638,7 @@ class DressingEnv(AssistiveEnv):
             settle_steps = 85
 
         for i in range(settle_steps):
-            print(i)
+            print(f'Waiting for garment to settle - step {i}')
             p.stepSimulation(physicsClientId=self.id)
 
         p.setGravity(0, 0, -9.81, physicsClientId=self.id)   
@@ -655,14 +655,14 @@ class DressingEnv(AssistiveEnv):
             print('static arm') 
         
         elif self.motion_id == 1:
-            with open('envs/arm_motions/straight_up.pkl', 'rb') as f:
+            with open('assistive_gym/arm_motions/straight_up.pkl', 'rb') as f:
                 target_joint_angles = pickle.load(f)
             steps = 60
             self.arm_traj = np.linspace(joint_angles, target_joint_angles, num=steps)
             self.repeat_traj = 0
             
         elif self.motion_id == 2:
-            with open('envs/arm_motions/bend_down.pkl', 'rb') as f:
+            with open('assistive_gym/arm_motions/bend_down.pkl', 'rb') as f:
                 target_joint_angles = pickle.load(f)
             steps = 60
             self.arm_traj = np.linspace(joint_angles, target_joint_angles, num=steps)
@@ -671,45 +671,45 @@ class DressingEnv(AssistiveEnv):
         elif self.motion_id == 3:
             pass
         elif self.motion_id == 4:
-            with open('envs/arm_motions/straight_down.pkl', 'rb') as f:
+            with open('assistive_gym/arm_motions/straight_down.pkl', 'rb') as f:
                 target_joint_angles = pickle.load(f)
             steps = 60
             self.arm_traj = np.linspace(joint_angles, target_joint_angles, num=steps)
             self.repeat_traj = 0
         elif self.motion_id == 5:
-            with open('envs/arm_motions/reach_phone.pkl', 'rb') as f:
+            with open('assistive_gym/arm_motions/reach_phone.pkl', 'rb') as f:
                 target_joint_angles = pickle.load(f)
             steps = 60
             self.arm_traj = np.linspace(joint_angles, target_joint_angles, num=steps)
             self.repeat_traj = 1
         elif self.motion_id == 6:
-            with open('envs/arm_motions/receive_obj.pkl', 'rb') as f:
+            with open('assistive_gym/arm_motions/receive_obj.pkl', 'rb') as f:
                 target_joint_angles = pickle.load(f)
             steps = 60
             self.arm_traj = np.linspace(joint_angles, target_joint_angles, num=steps)
             self.repeat_traj = 1
         elif self.motion_id == 7:
-            with open('envs/arm_motions/scratch_head.pkl', 'rb') as f:
+            with open('assistive_gym/arm_motions/scratch_head.pkl', 'rb') as f:
                 target_joint_angles = pickle.load(f)
             steps = 60 #40 -> 30
             self.arm_traj = np.linspace(joint_angles, target_joint_angles, num=steps)
             self.repeat_traj = 1
         elif self.motion_id == 8:
-            with open('envs/arm_motions/maneki_arm.pkl', 'rb') as f:
+            with open('assistive_gym/arm_motions/maneki_arm.pkl', 'rb') as f:
                 target_joint_angles = pickle.load(f)
             steps = 60
             self.arm_traj = np.linspace(joint_angles, target_joint_angles, num=steps)
             self.repeat_traj = 0
 
         elif self.motion_id == 11:
-            with open('envs/arm_motions/straight_up.pkl', 'rb') as f:
+            with open('assistive_gym/arm_motions/straight_up.pkl', 'rb') as f:
                 target_joint_angles = pickle.load(f)
             steps = 60
             self.arm_traj = np.linspace(target_joint_angles, joint_angles, num=steps)
             self.repeat_traj = 0
             
         elif self.motion_id == 12:
-            with open('envs/arm_motions/bend_down.pkl', 'rb') as f:
+            with open('assistive_gym/arm_motions/bend_down.pkl', 'rb') as f:
                 target_joint_angles = pickle.load(f)
             steps = 60
             self.arm_traj = np.linspace(target_joint_angles, joint_angles, num=steps)
@@ -718,31 +718,31 @@ class DressingEnv(AssistiveEnv):
         elif self.motion_id == 13:
             pass
         elif self.motion_id == 14:
-            with open('envs/arm_motions/straight_down.pkl', 'rb') as f:
+            with open('assistive_gym/arm_motions/straight_down.pkl', 'rb') as f:
                 target_joint_angles = pickle.load(f)
             steps = 60
             self.arm_traj = np.linspace(target_joint_angles, joint_angles, num=steps)
             self.repeat_traj = 0
         elif self.motion_id == 15:
-            with open('envs/arm_motions/reach_phone.pkl', 'rb') as f:
+            with open('assistive_gym/arm_motions/reach_phone.pkl', 'rb') as f:
                 target_joint_angles = pickle.load(f)
             steps = 60
             self.arm_traj = np.linspace(target_joint_angles, joint_angles, num=steps)[10:]
             self.repeat_traj = 1
         elif self.motion_id == 16:
-            with open('envs/arm_motions/receive_obj.pkl', 'rb') as f:
+            with open('assistive_gym/arm_motions/receive_obj.pkl', 'rb') as f:
                 target_joint_angles = pickle.load(f)
             steps = 60
             self.arm_traj = np.linspace(target_joint_angles, joint_angles, num=steps)
             self.repeat_traj = 1
         elif self.motion_id == 17:
-            with open('envs/arm_motions/scratch_head.pkl', 'rb') as f:
+            with open('assistive_gym/arm_motions/scratch_head.pkl', 'rb') as f:
                 target_joint_angles = pickle.load(f)
             steps = 60 #40 -> 30
             self.arm_traj = np.linspace(target_joint_angles, joint_angles, num=steps)[20:]
             self.repeat_traj = 1
         elif self.motion_id == 18:
-            with open('envs/arm_motions/maneki_arm.pkl', 'rb') as f:
+            with open('assistive_gym/arm_motions/maneki_arm.pkl', 'rb') as f:
                 target_joint_angles = pickle.load(f)
             steps = 60
             self.arm_traj = np.linspace(target_joint_angles, joint_angles, num=steps)[10:]
@@ -756,27 +756,27 @@ class DressingEnv(AssistiveEnv):
         joint_angles = self.human.get_joint_angles(ik_indices)
         steps = 60
 
-        with open('envs/arm_motions/bend_down.pkl', 'rb') as f:
+        with open('assistive_gym/arm_motions/bend_down.pkl', 'rb') as f:
             motion2_target_joint_angles = pickle.load(f)
         self.poses_lst.extend(np.linspace(joint_angles, motion2_target_joint_angles, num=steps)[9::10])
         
-        with open('envs/arm_motions/straight_down.pkl', 'rb') as f:
+        with open('assistive_gym/arm_motions/straight_down.pkl', 'rb') as f:
             motion4_target_joint_angles = pickle.load(f)
         self.poses_lst.extend(np.linspace(joint_angles, motion4_target_joint_angles, num=steps)[9::10])
 
-        with open('envs/arm_motions/reach_phone.pkl', 'rb') as f:
+        with open('assistive_gym/arm_motions/reach_phone.pkl', 'rb') as f:
             motion5_target_joint_angles = pickle.load(f)
         self.poses_lst.extend(np.linspace(joint_angles, motion5_target_joint_angles, num=steps)[9::10])
 
-        with open('envs/arm_motions/receive_obj.pkl', 'rb') as f:
+        with open('assistive_gym/arm_motions/receive_obj.pkl', 'rb') as f:
             motion6_target_joint_angles = pickle.load(f)
         self.poses_lst.extend(np.linspace(joint_angles, motion6_target_joint_angles, num=steps)[9::10])
 
-        with open('envs/arm_motions/scratch_head.pkl', 'rb') as f:
+        with open('assistive_gym/arm_motions/scratch_head.pkl', 'rb') as f:
             motion7_target_joint_angles = pickle.load(f)
         self.poses_lst.extend(np.linspace(joint_angles, motion7_target_joint_angles, num=steps)[9::10][:-2])
 
-        with open('envs/arm_motions/maneki_arm.pkl', 'rb') as f:
+        with open('assistive_gym/arm_motions/maneki_arm.pkl', 'rb') as f:
             motion8_target_joint_angles = pickle.load(f)
         self.poses_lst.extend(np.linspace(joint_angles, motion8_target_joint_angles, num=steps)[9::10])
 
@@ -802,7 +802,7 @@ class DressingEnv(AssistiveEnv):
                 joint_angles = self.human.get_joint_angles(ik_indices)
                 print('diff', np.linalg.norm(joint_angles-target_joint_angles))
 
-                with open('envs/arm_motions/arm_motion_{}.pkl'.format(self.motion_id), 'wb') as f:
+                with open('assistive_gym/arm_motions/arm_motion_{}.pkl'.format(self.motion_id), 'wb') as f:
                     pickle.dump(joint_angles, f)
 
         elif self.motion_id == 2:
@@ -820,7 +820,7 @@ class DressingEnv(AssistiveEnv):
                 joint_angles = self.human.get_joint_angles(ik_indices)
                 print('diff', np.linalg.norm(joint_angles-target_joint_angles))
 
-            with open('envs/arm_motions/arm_motion_{}.pkl'.format(self.motion_id), 'wb') as f:
+            with open('assistive_gym/arm_motions/arm_motion_{}.pkl'.format(self.motion_id), 'wb') as f:
                 pickle.dump(joint_angles, f)
            
         elif self.motion_id == 3: # bend arm (need to adjust init robot pos)
@@ -843,7 +843,7 @@ class DressingEnv(AssistiveEnv):
                 joint_angles = self.human.get_joint_angles(ik_indices)
                 print('diff', np.linalg.norm(joint_angles-target_joint_angles))
 
-            with open('envs/arm_motions/arm_motion_{}.pkl'.format(self.motion_id), 'wb') as f:
+            with open('assistive_gym/arm_motions/arm_motion_{}.pkl'.format(self.motion_id), 'wb') as f:
                 pickle.dump(joint_angles, f)
 
         elif self.motion_id == 5: # reach for phone in pocket (bent->down->bent)
@@ -861,7 +861,7 @@ class DressingEnv(AssistiveEnv):
                 
                 joint_angles = self.human.get_joint_angles(ik_indices)
                 print('diff', np.linalg.norm(joint_angles-target_joint_angles))
-                with open('envs/arm_motions/arm_motion_{}.pkl'.format(self.motion_id), 'wb') as f:
+                with open('assistive_gym/arm_motions/arm_motion_{}.pkl'.format(self.motion_id), 'wb') as f:
                     pickle.dump(joint_angles, f)
 
         elif self.motion_id == 6: # receive an item (bent->straight->bent)
@@ -881,7 +881,7 @@ class DressingEnv(AssistiveEnv):
                 joint_angles = self.human.get_joint_angles(ik_indices)
                 print('diff', np.linalg.norm(joint_angles-target_joint_angles))
 
-                with open('envs/arm_motions/arm_motion_{}.pkl'.format(self.motion_id), 'wb') as f:
+                with open('assistive_gym/arm_motions/arm_motion_{}.pkl'.format(self.motion_id), 'wb') as f:
                     pickle.dump(joint_angles, f)
 
         elif self.motion_id == 7: # scratch face (bent->up->bent)
@@ -899,7 +899,7 @@ class DressingEnv(AssistiveEnv):
                 
                 joint_angles = self.human.get_joint_angles(ik_indices)
                 print('diff', np.linalg.norm(joint_angles-target_joint_angles))
-                with open('envs/arm_motions/arm_motion_{}.pkl'.format(self.motion_id), 'wb') as f:
+                with open('assistive_gym/arm_motions/arm_motion_{}.pkl'.format(self.motion_id), 'wb') as f:
                     pickle.dump(joint_angles, f)
 
         elif self.motion_id == 8:
@@ -919,7 +919,7 @@ class DressingEnv(AssistiveEnv):
                 joint_angles = self.human.get_joint_angles(ik_indices)
                 print('diff', np.linalg.norm(joint_angles-target_joint_angles))
 
-                with open('envs/arm_motions/arm_motion_{}.pkl'.format(self.motion_id), 'wb') as f:
+                with open('assistive_gym/arm_motions/arm_motion_{}.pkl'.format(self.motion_id), 'wb') as f:
                     pickle.dump(joint_angles, f)
 
         else:

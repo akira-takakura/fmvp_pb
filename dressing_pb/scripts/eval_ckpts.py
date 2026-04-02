@@ -309,7 +309,7 @@ def main(args):
     print('Saving gifs at: ', gif_path)
     args.gif_path = gif_path
 
-    ckpt = "ckpts/ckpt_one-hot_film_force/actor_best_test_20000_0.99791.pt"
+    ckpt = "ckpts/actor_best_test_20000_0.99791.pt"
 
     # Note
     agents = []
@@ -349,10 +349,8 @@ def main(args):
         agent.load_actor_ckpt(ckpt)
         agents.append((agent, 0, elbow_rand, shoulder_rand))
 
-    garment_ids = [3]
+    garment_ids = [1, 2]
 
-    # motion_ids = [11, 12, 14, 15, 16, 17, 18]
-    # motion_ids = [1, 2, 4, 5, 6, 7, 8]
     motion_ids = [1, 2, 4, 5, 6, 7, 8]#, 11, 12, 14, 15, 16, 17, 18]
     
     pairs = [(x, y, -1) for x in garment_ids for y in motion_ids]
@@ -362,7 +360,7 @@ def main(args):
         print("Eval begin step = {}".format(step))
         L.log('eval-number', episode, step)
 
-        parallel_evaluator = ParallelEvaluator(num_workers=int(len(pairs)))
+        parallel_evaluator = ParallelEvaluator(num_workers=int(len(pairs)/8))
         dressed_ratios = parallel_evaluator.evaluate_agents(agent, step, elbow_rand, shoulder_rand, pairs, args)
         parallel_evaluator.close()
 
@@ -388,6 +386,6 @@ if __name__ == "__main__":
 
     print(exp_name)
     exp_name = "{}-{}-{:03}".format(exp_name, timestamp, exp_count)
-    log_dir = '/home/alexis/dressing_sim/dressing_pb/eval_results/' + exp_prefix + "/" + exp_name
+    log_dir = 'eval_results/' + exp_prefix + "/" + exp_name
 
     run_task(vg, log_dir=log_dir, exp_name=exp_name)
