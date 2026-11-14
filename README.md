@@ -1,5 +1,12 @@
 # Force-Modulated Visual Policy for Robot-Assisted Dressing with Arm Motions
 
+## Arm-tracking integration in this fork
+
+See [visible right-arm recording and offline PDE/GICP comparison](examples/arm_tracking/README.md).
+The NumPy-only recorder can run in the existing simulator environment; the
+numerical tracker is maintained in the linked companion repository. This
+addition does not change the upstream policy or simulation dynamics.
+
 Official codebase for the CoRL 2025 paper:
 
 **Force-Modulated Visual Policy for Robot-Assisted Dressing with Arm Motions**  

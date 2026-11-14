@@ -145,3 +145,8 @@ examples
 images
 pyrender
 LICENSE
+# Share only the new arm-tracking recorder from the otherwise ignored examples.
+!examples/
+examples/*
+!examples/arm_tracking/
+!examples/arm_tracking/**
